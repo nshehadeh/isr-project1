@@ -47,8 +47,7 @@ if __name__ == '__main__':
             old_h, old_w, _ = img.shape
 
             img = img[h_start: h_start + height, w_start: w_start + width]
-            cv2.imwrite(str(cropped_train_path / instrument_folder / 'images' / (file_name.stem + '.jpg')), img,
-                        [cv2.IMWRITE_JPEG_QUALITY, 100])
+            cv2.imwrite(str(cropped_train_path / instrument_folder / 'images' / (file_name.stem + '.png')), img)
 
             mask_binary = np.zeros((old_h, old_w))
             mask_parts = np.zeros((old_h, old_w))
