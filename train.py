@@ -39,6 +39,14 @@ parser.add_argument('--vit_name', type=str,
                     default='R50-ViT-B_16', help='select one vit model')
 parser.add_argument('--vit_patches_size', type=int,
                     default=16, help='vit_patches_size, default is 16')
+
+# parser.add_argument('--fold', type=int, help='fold', default=0)
+parser.add_argument('--train_crop_height', type=int, default=1024)
+parser.add_argument('--train_crop_width', type=int, default=1280)
+parser.add_argument('--val_crop_height', type=int, default=1024)
+parser.add_argument('--val_crop_width', type=int, default=1280)
+parser.add_argument('--root', default='runs/debug', help='checkpoint root')
+parser.add_argument('--type', type=str, default='binary', choices=['binary', 'parts', 'instruments'])
 args = parser.parse_args()
 
 

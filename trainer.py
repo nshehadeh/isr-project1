@@ -15,8 +15,40 @@ from tqdm import tqdm
 from utils import DiceLoss
 from torchvision import transforms
 
+
+import argparse
+import json
+from pathlib import Path
+from validation import validation_binary
+
+import torch
+from torch import nn
+from torch.optim import Adam
+from torch.utils.data import DataLoader
+import torch.backends.cudnn as cudnn
+import torch.backends.cudnn
+
+from models import UNet11
+from loss import LossBinary
+from dataset import RoboticsDataset
+import utils
+import sys
+from prepare_train_val import get_split
+
+from albumentations import (
+    HorizontalFlip,
+    VerticalFlip,
+    Normalize,
+    Compose,
+    PadIfNeeded,
+    RandomCrop,
+    CenterCrop
+)
+
+
 def trainer_synapse(args, model, snapshot_path):
     from datasets.dataset_synapse import Synapse_dataset, RandomGenerator
+    from dataset import RoboticsDataset
     logging.basicConfig(filename=snapshot_path + "/log.txt", level=logging.INFO,
                         format='[%(asctime)s.%(msecs)03d] %(message)s', datefmt='%H:%M:%S')
     logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
@@ -25,16 +57,93 @@ def trainer_synapse(args, model, snapshot_path):
     num_classes = args.num_classes
     batch_size = args.batch_size * args.n_gpu
     # max_iterations = args.max_iterations
-    db_train = Synapse_dataset(base_dir=args.root_path, list_dir=args.list_dir, split="train",
-                               transform=transforms.Compose(
-                                   [RandomGenerator(output_size=[args.img_size, args.img_size])]))
+    
+    
+    # dataset code from Ternaus
+    root = Path(args.root)
+    root.mkdir(exist_ok=True, parents=True)
+
+    if not utils.check_crop_size(args.train_crop_height, args.train_crop_width):
+        print('Input image sizes should be divisible by 32, but train '
+              'crop sizes ({train_crop_height} and {train_crop_width}) '
+              'are not.'.format(train_crop_height=args.train_crop_height, train_crop_width=args.train_crop_width))
+        sys.exit(0)
+
+    if not utils.check_crop_size(args.val_crop_height, args.val_crop_width):
+        print('Input image sizes should be divisible by 32, but validation '
+              'crop sizes ({val_crop_height} and {val_crop_width}) '
+              'are not.'.format(val_crop_height=args.val_crop_height, val_crop_width=args.val_crop_width))
+        sys.exit(0)
+    
+    # only binary
+    num_classes = 1
+    # model = UNet11(num_classes=num_classes,pretrained=True)
+    if torch.cuda.is_available():
+        if args.device_ids:
+            device_ids = list(map(int, args.device_ids.split(',')))
+        else:
+            device_ids = None
+        model = nn.DataParallel(model, device_ids=device_ids).cuda()
+    else:
+        raise SystemError('GPU device not found')
+
+    def make_loader(file_names, shuffle=False, transform=None, problem_type='binary', batch_size=1):
+        if(args.right >0):
+            right_frames = True
+        else:
+            right_frames = False
+        return DataLoader(
+            dataset=RoboticsDataset(file_names, transform=transform, problem_type=problem_type, right_frames =right_frames),
+            shuffle=shuffle,
+            num_workers=args.workers,
+            batch_size=batch_size,
+            pin_memory=torch.cuda.is_available()
+        )
+
+    train_file_names, val_file_names = get_split(args.fold)
+    #print("Train file names: ")
+    #print(train_file_names)
+
+    print('num train = {}, num_val = {}'.format(len(train_file_names), len(val_file_names)))
+
+    def train_transform(p=1):
+        return Compose([
+            PadIfNeeded(min_height=args.train_crop_height, min_width=args.train_crop_width, p=1),
+            RandomCrop(height=args.train_crop_height, width=args.train_crop_width, p=1),
+            VerticalFlip(p=0.5),
+            HorizontalFlip(p=0.5),
+            Normalize(p=1)
+        ], p=p)
+
+    def val_transform(p=1):
+        return Compose([
+            PadIfNeeded(min_height=args.val_crop_height, min_width=args.val_crop_width, p=1),
+            CenterCrop(height=args.val_crop_height, width=args.val_crop_width, p=1),
+            Normalize(p=1)
+        ], p=p)
+
+    trainloader = make_loader(train_file_names, shuffle=True, transform=train_transform(p=1), problem_type=args.type,
+                               batch_size=args.batch_size)
+    """
+    print(len(train_loader.dataset))
+    print("Example from train_loader: ")
+    batch = next(iter(train_loader))
+    images, labels = batch
+    print(images.size())
+    print(images[0])
+    """
+    valid_loader = make_loader(val_file_names, transform=val_transform(p=1), problem_type=args.type,
+                               batch_size=len(device_ids))
+    
+    print(len(train_loader.dataset))
+    #db_train = Synapse_dataset(base_dir=args.root_path, list_dir=args.list_dir, split="train", transform=transforms.Compose([RandomGenerator(output_size=[args.img_size, args.img_size])]))
     print("The length of train set is: {}".format(len(db_train)))
 
     def worker_init_fn(worker_id):
         random.seed(args.seed + worker_id)
 
-    trainloader = DataLoader(db_train, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True,
-                             worker_init_fn=worker_init_fn)
+    #trainloader = DataLoader(db_train, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True,
+                             #worker_init_fn=worker_init_fn)
     if args.n_gpu > 1:
         model = nn.DataParallel(model)
     model.train()
