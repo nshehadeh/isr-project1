@@ -36,15 +36,20 @@ parser.add_argument('--seed', type=int,
 parser.add_argument('--n_skip', type=int,
                     default=3, help='using number of skip-connect, default is num')
 parser.add_argument('--vit_name', type=str,
-                    default='R50-ViT-B_16', help='select one vit model')
+                    default='R50+ViT-B_16', help='select one vit model')
 parser.add_argument('--vit_patches_size', type=int,
                     default=16, help='vit_patches_size, default is 16')
+parser.add_argument('--device_ids', type=str,
+                    default='0', help='cuda device ids, default is 0')
 
 # parser.add_argument('--fold', type=int, help='fold', default=0)
 parser.add_argument('--train_crop_height', type=int, default=1024)
 parser.add_argument('--train_crop_width', type=int, default=1280)
 parser.add_argument('--val_crop_height', type=int, default=1024)
 parser.add_argument('--val_crop_width', type=int, default=1280)
+parser.add_argument('--fold', type=int, default=0)
+parser.add_argument('--right', type=int, default=0)
+parser.add_argument('--workers', type=int, default=4)
 parser.add_argument('--root', default='runs/debug', help='checkpoint root')
 parser.add_argument('--type', type=str, default='binary', choices=['binary', 'parts', 'instruments'])
 args = parser.parse_args()

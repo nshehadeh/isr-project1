@@ -3,7 +3,7 @@ import numpy as np
 import cv2
 from torch.utils.data import Dataset
 import prepare_data
-from albumentations.torch.functional import img_to_tensor
+from albumentations.pytorch.functional import img_to_tensor
 
 
 class RoboticsDataset(Dataset):
@@ -23,17 +23,40 @@ class RoboticsDataset(Dataset):
         image = load_image(img_file_name)
         mask = load_mask(img_file_name, self.problem_type, self.right_frames)
 
+        # print('image size before aug', image.shape)
+
         data = {"image": image, "mask": mask}
         augmented = self.transform(**data)
         image, mask = augmented["image"], augmented["mask"]
 
+        def adjust_size(img):
+            assert img.shape[:-1] == (1024, 1280), f'{img.shape}'
+            img = img[:,128:-128,:]
+            img = img[:224,:224,:]
+            return img
+
+        image = adjust_size(image)
+        mask = adjust_size(mask.reshape(*mask.shape, 1))
+        mask = mask.reshape(*mask.shape[:-1])
+
+        # assert image.shape == (1024, 1280, 3)
+        # image = image[:,128:-128,:]
+        # assert image.shape == (1024, 1024, 3)
+        # assert image.shape == (200, 200, 3)
+        # print('image size after aug ', image.shape)
+
+        data = {}
         if self.mode == 'train':
             if self.problem_type == 'binary':
-                return img_to_tensor(image), torch.from_numpy(np.expand_dims(mask, 0)).float()
+                data['image'] = img_to_tensor(image)
+                data['label'] = torch.from_numpy(np.expand_dims(mask, 0)).float()
             else:
-                return img_to_tensor(image), torch.from_numpy(mask).long()
+                data['image'] = img_to_tensor(image)
+                data['label'] = torch.from_numpy(mask).long()
         else:
-            return img_to_tensor(image), str(img_file_name)
+            data['image'] = img_to_tensor(image)
+            data['label'] = str(img_file_name)
+        return data
 
 
 def load_image(path):
@@ -52,7 +75,7 @@ def load_mask(path, problem_type, right_frames):
         factor = prepare_data.instrument_factor
         mask_folder = 'instruments_masks'
 
-    mask = cv2.imread(str(path).replace('images', mask_folder).replace('jpg', 'png'), 0)
+    mask = cv2.imread(str(path).replace('images', mask_folder), 0)
     if right_frames:
         mask = shift_label(mask, mask.shape[0], mask.shape[1])
         """

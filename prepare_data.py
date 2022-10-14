@@ -8,9 +8,14 @@ from tqdm import tqdm
 import cv2
 import numpy as np
 
-data_path = Path('Dataset')
+# ------------------------------------------------
 
-train_path = data_path / 'instrument_1_4_training'
+inner_src = 'ground_truth' # produce cropped left labels
+# inner_src = 'right_label' # produce cropped right labels
+
+# ------------------------------------------------
+
+data_path = Path('../Dataset/')
 
 cropped_train_path = data_path / 'cropped_train'
 
@@ -22,9 +27,10 @@ binary_factor = 255
 parts_factor = 85
 instrument_factor = 32
 
+def process(low, high):
+    train_path = data_path / f'instrument_{low}_{high}_training'
 
-if __name__ == '__main__':
-    for instrument_index in range(1, 5):
+    for instrument_index in range(low, high+1):
         instrument_folder = 'instrument_dataset_' + str(instrument_index)
 
         (cropped_train_path / instrument_folder / 'images').mkdir(exist_ok=True, parents=True)
@@ -38,11 +44,9 @@ if __name__ == '__main__':
         instrument_mask_folder = (cropped_train_path / instrument_folder / 'instruments_masks')
         instrument_mask_folder.mkdir(exist_ok=True, parents=True)
 
-        mask_folders = list((train_path / instrument_folder / 'ground_truth').glob('*'))
-        # mask_folders = [x for x in mask_folders if 'Other' not in str(mask_folders)]
-        
-        for file_name in tqdm(list((train_path / instrument_folder / 'right_frames').glob('*'))):
-            print(str(file_name))
+        mask_folders = list((train_path / instrument_folder / inner_src).glob('*'))
+
+        for file_name in tqdm(list((train_path / instrument_folder / 'left_frames').glob('*'))):
             img = cv2.imread(str(file_name))
             old_h, old_w, _ = img.shape
 
@@ -78,13 +82,14 @@ if __name__ == '__main__':
                     mask_parts[mask == 20] = 2  # Wrist
                     mask_parts[mask == 30] = 3  # Claspers
 
-            mask_binary = (mask_binary[h_start: h_start + height, w_start: w_start + width] > 0).astype(
-                np.uint8) * binary_factor
-            mask_parts = (mask_parts[h_start: h_start + height, w_start: w_start + width]).astype(
-                np.uint8) * parts_factor
-            mask_instruments = (mask_instruments[h_start: h_start + height, w_start: w_start + width]).astype(
-                np.uint8) * instrument_factor
+            mask_binary = (mask_binary[h_start: h_start + height, w_start: w_start + width] > 0).astype(np.uint8) * binary_factor
+            mask_parts = (mask_parts[h_start: h_start + height, w_start: w_start + width]).astype(np.uint8) * parts_factor
+            mask_instruments = (mask_instruments[h_start: h_start + height, w_start: w_start + width]).astype(np.uint8) * instrument_factor
 
             cv2.imwrite(str(binary_mask_folder / file_name.name), mask_binary)
             cv2.imwrite(str(parts_mask_folder / file_name.name), mask_parts)
             cv2.imwrite(str(instrument_mask_folder / file_name.name), mask_instruments)
+
+if __name__ == '__main__':
+    process(1, 4)
+    process(5, 8)

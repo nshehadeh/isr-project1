@@ -19,7 +19,7 @@ from torchvision import transforms
 import argparse
 import json
 from pathlib import Path
-from validation import validation_binary
+# from validation import validation_binary
 
 import torch
 from torch import nn
@@ -28,8 +28,8 @@ from torch.utils.data import DataLoader
 import torch.backends.cudnn as cudnn
 import torch.backends.cudnn
 
-from models import UNet11
-from loss import LossBinary
+# from models import UNet11
+# from loss import LossBinary
 from dataset import RoboticsDataset
 import utils
 import sys
@@ -134,10 +134,10 @@ def trainer_synapse(args, model, snapshot_path):
     """
     valid_loader = make_loader(val_file_names, transform=val_transform(p=1), problem_type=args.type,
                                batch_size=len(device_ids))
-    
-    print(len(train_loader.dataset))
+
+    print('trainloader dataset size:', len(trainloader.dataset))
     #db_train = Synapse_dataset(base_dir=args.root_path, list_dir=args.list_dir, split="train", transform=transforms.Compose([RandomGenerator(output_size=[args.img_size, args.img_size])]))
-    print("The length of train set is: {}".format(len(db_train)))
+    # print("The length of train set is: {}".format(len(db_train)))
 
     def worker_init_fn(worker_id):
         random.seed(args.seed + worker_id)
@@ -161,6 +161,9 @@ def trainer_synapse(args, model, snapshot_path):
         for i_batch, sampled_batch in enumerate(trainloader):
             image_batch, label_batch = sampled_batch['image'], sampled_batch['label']
             image_batch, label_batch = image_batch.cuda(), label_batch.cuda()
+
+            print('image batch size:', image_batch.shape)
+
             outputs = model(image_batch)
             loss_ce = ce_loss(outputs, label_batch[:].long())
             loss_dice = dice_loss(outputs, label_batch, softmax=True)
