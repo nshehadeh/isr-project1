@@ -7,7 +7,7 @@ from albumentations.pytorch.functional import img_to_tensor
 
 
 class RoboticsDataset(Dataset):
-    def __init__(self, file_names, to_augment=False, transform=None, mode='train', problem_type=None, right_frames = False):
+    def __init__(self, file_names, to_augment=False, transform=None, mode='train', problem_type='binary', right_frames = False):
         self.file_names = file_names
         self.to_augment = to_augment
         self.transform = transform
@@ -23,8 +23,6 @@ class RoboticsDataset(Dataset):
         image = load_image(img_file_name)
         mask = load_mask(img_file_name, self.problem_type, self.right_frames)
 
-        # print('image size before aug', image.shape)
-
         data = {"image": image, "mask": mask}
         augmented = self.transform(**data)
         image, mask = augmented["image"], augmented["mask"]
@@ -32,18 +30,14 @@ class RoboticsDataset(Dataset):
         def adjust_size(img):
             assert img.shape[:-1] == (1024, 1280), f'{img.shape}'
             img = img[:,128:-128,:]
-            img = img[:224,:224,:]
+            img = cv2.resize(img, (224, 224), cv2.INTER_LINEAR)
             return img
 
         image = adjust_size(image)
         mask = adjust_size(mask.reshape(*mask.shape, 1))
-        mask = mask.reshape(*mask.shape[:-1])
 
-        # assert image.shape == (1024, 1280, 3)
-        # image = image[:,128:-128,:]
-        # assert image.shape == (1024, 1024, 3)
-        # assert image.shape == (200, 200, 3)
-        # print('image size after aug ', image.shape)
+        assert image.shape == (224, 224, 3)
+        assert mask.shape == (224, 224)
 
         data = {}
         if self.mode == 'train':
@@ -58,11 +52,8 @@ class RoboticsDataset(Dataset):
             data['label'] = str(img_file_name)
         return data
 
-
 def load_image(path):
-    img = cv2.imread(str(path))
-    return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
+    return cv2.imread(str(path))
 
 def load_mask(path, problem_type, right_frames):
     if problem_type == 'binary':
@@ -75,7 +66,8 @@ def load_mask(path, problem_type, right_frames):
         factor = prepare_data.instrument_factor
         mask_folder = 'instruments_masks'
 
-    mask = cv2.imread(str(path).replace('images', mask_folder), 0)
+    real_path = str(path).replace('images', mask_folder)
+    mask = cv2.imread(real_path, 0)
     if right_frames:
         mask = shift_label(mask, mask.shape[0], mask.shape[1])
         """
@@ -105,5 +97,5 @@ def shift_label(label, height, width):
       x_right_j = round(j + shift_j)
       if x_right_i >= 0 and x_right_i < height:
         if x_right_j >= 0 and x_right_j < width:
-          label_right[x_right_i, x_right_j] = label[i, j];
+          label_right[x_right_i, x_right_j] = label[i, j]
   return label_right

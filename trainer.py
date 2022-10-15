@@ -101,8 +101,6 @@ def trainer_synapse(args, model, snapshot_path):
         )
 
     train_file_names, val_file_names = get_split(args.fold)
-    #print("Train file names: ")
-    #print(train_file_names)
 
     print('num train = {}, num_val = {}'.format(len(train_file_names), len(val_file_names)))
 
@@ -166,7 +164,7 @@ def trainer_synapse(args, model, snapshot_path):
             image_batch, label_batch = image_batch.cuda(), label_batch.cuda()
 
             outputs = model(image_batch)
-            assert outputs.shape == label_batch.shape
+            assert outputs.shape == label_batch.shape, f'{outputs.shape} {label_batch.shape}'
 
             # loss_ce = ce_loss(outputs, label_batch[:].long())
             # loss_dice = dice_loss(outputs, label_batch, softmax=True)
