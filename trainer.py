@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 from utils import DiceLoss
 from torchvision import transforms
-
+from loss import LossBinary
 
 import argparse
 import json
@@ -147,8 +147,11 @@ def trainer_synapse(args, model, snapshot_path):
     if args.n_gpu > 1:
         model = nn.DataParallel(model)
     model.train()
-    ce_loss = CrossEntropyLoss()
-    dice_loss = DiceLoss(num_classes)
+
+    # ce_loss = CrossEntropyLoss()
+    # dice_loss = DiceLoss(num_classes)
+    loss_bin = LossBinary(jaccard_weight=args.jaccard_weight)
+
     optimizer = optim.SGD(model.parameters(), lr=base_lr, momentum=0.9, weight_decay=0.0001)
     writer = SummaryWriter(snapshot_path + '/log')
     iter_num = 0
@@ -162,12 +165,15 @@ def trainer_synapse(args, model, snapshot_path):
             image_batch, label_batch = sampled_batch['image'], sampled_batch['label']
             image_batch, label_batch = image_batch.cuda(), label_batch.cuda()
 
-            print('image batch size:', image_batch.shape)
-
             outputs = model(image_batch)
-            loss_ce = ce_loss(outputs, label_batch[:].long())
-            loss_dice = dice_loss(outputs, label_batch, softmax=True)
-            loss = 0.5 * loss_ce + 0.5 * loss_dice
+            assert outputs.shape == label_batch.shape
+
+            # loss_ce = ce_loss(outputs, label_batch[:].long())
+            # loss_dice = dice_loss(outputs, label_batch, softmax=True)
+            # loss = 0.5 * loss_ce + 0.5 * loss_dice
+
+            loss = loss_bin(outputs, label_batch)
+
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -178,9 +184,9 @@ def trainer_synapse(args, model, snapshot_path):
             iter_num = iter_num + 1
             writer.add_scalar('info/lr', lr_, iter_num)
             writer.add_scalar('info/total_loss', loss, iter_num)
-            writer.add_scalar('info/loss_ce', loss_ce, iter_num)
+            # writer.add_scalar('info/loss_ce', loss_ce, iter_num)
 
-            logging.info('iteration %d : loss : %f, loss_ce: %f' % (iter_num, loss.item(), loss_ce.item()))
+            logging.info(f'iteration {iter_num} : loss {loss.item()}')
 
             if iter_num % 20 == 0:
                 image = image_batch[1, 0:1, :, :]

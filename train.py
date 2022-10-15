@@ -52,6 +52,7 @@ parser.add_argument('--right', type=int, default=0)
 parser.add_argument('--workers', type=int, default=4)
 parser.add_argument('--root', default='runs/debug', help='checkpoint root')
 parser.add_argument('--type', type=str, default='binary', choices=['binary', 'parts', 'instruments'])
+parser.add_argument('--jaccard-weight', default=0.5, type=float)
 args = parser.parse_args()
 
 
@@ -75,7 +76,7 @@ if __name__ == "__main__":
             'num_classes': 9,
         },
     }
-    args.num_classes = dataset_config[dataset_name]['num_classes']
+    # args.num_classes = dataset_config[dataset_name]['num_classes']
     args.root_path = dataset_config[dataset_name]['root_path']
     args.list_dir = dataset_config[dataset_name]['list_dir']
     args.is_pretrain = True
