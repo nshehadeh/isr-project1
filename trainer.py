@@ -201,7 +201,7 @@ def trainer_synapse(args, model, snapshot_path):
                 # labs = label_batch[1, ...].unsqueeze(0) * 50
                 # writer.add_image('train/GroundTruth', labs, iter_num)
 
-            if iter_num % 1000 == 0:
+            if iter_num % 100 == 0:
                 model.eval()
                 val_loss_total = 0
                 val_loss_count = 0
