@@ -27,8 +27,8 @@ parser.add_argument('--batch_size', type=int,
 parser.add_argument('--n_gpu', type=int, default=1, help='total gpu')
 parser.add_argument('--deterministic', type=int,  default=1,
                     help='whether use deterministic training')
-parser.add_argument('--base_lr', type=float,  default=0.01,
-                    help='segmentation network learning rate')
+parser.add_argument('--base_lr', type=float, default=0.01, help='segmentation network learning rate')
+parser.add_argument('--lr_decay_power', type=float, default=0.9, help='power to use for lr descent profile')
 parser.add_argument('--img_size', type=int,
                     default=224, help='input patch size of network input')
 parser.add_argument('--seed', type=int,
@@ -52,7 +52,7 @@ parser.add_argument('--right', type=int, default=0)
 parser.add_argument('--workers', type=int, default=4)
 parser.add_argument('--root', default='runs/debug', help='checkpoint root')
 parser.add_argument('--type', type=str, default='binary', choices=['binary', 'parts', 'instruments'])
-parser.add_argument('--jaccard-weight', default=0.5, type=float)
+parser.add_argument('--jaccard-weight', default=1, type=float)
 args = parser.parse_args()
 
 

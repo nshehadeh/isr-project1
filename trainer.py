@@ -130,7 +130,7 @@ def trainer_synapse(args, model, snapshot_path):
     print(images.size())
     print(images[0])
     """
-    valid_loader = make_loader(val_file_names, transform=val_transform(p=1), problem_type=args.type,
+    valloader = make_loader(val_file_names, transform=val_transform(p=1), problem_type=args.type,
                                batch_size=len(device_ids))
 
     print('trainloader dataset size:', len(trainloader.dataset))
@@ -151,6 +151,9 @@ def trainer_synapse(args, model, snapshot_path):
     loss_bin = LossBinary(jaccard_weight=args.jaccard_weight)
 
     optimizer = optim.SGD(model.parameters(), lr=base_lr, momentum=0.9, weight_decay=0.0001)
+    # optimizer = optim.Adam(model.parameters(), lr = base_lr)
+    do_lr_decay = True
+
     writer = SummaryWriter(snapshot_path + '/log')
     iter_num = 0
     max_epoch = args.max_epochs
@@ -175,12 +178,15 @@ def trainer_synapse(args, model, snapshot_path):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            lr_ = base_lr * (1.0 - iter_num / max_iterations) ** 0.9
-            for param_group in optimizer.param_groups:
-                param_group['lr'] = lr_
+
+            if do_lr_decay:
+                lr_ = base_lr * (1.0 - iter_num / max_iterations) ** args.lr_decay_power
+                for param_group in optimizer.param_groups:
+                    param_group['lr'] = lr_
 
             iter_num = iter_num + 1
-            writer.add_scalar('info/lr', lr_, iter_num)
+            if do_lr_decay:
+                writer.add_scalar('info/lr', lr_, iter_num)
             writer.add_scalar('info/total_loss', loss, iter_num)
             # writer.add_scalar('info/loss_ce', loss_ce, iter_num)
 
@@ -194,6 +200,22 @@ def trainer_synapse(args, model, snapshot_path):
                 writer.add_image('train/Prediction', outputs[1, ...] * 50, iter_num)
                 # labs = label_batch[1, ...].unsqueeze(0) * 50
                 # writer.add_image('train/GroundTruth', labs, iter_num)
+
+            if iter_num % 1000 == 0:
+                model.eval()
+                val_loss_total = 0
+                val_loss_count = 0
+                with torch.no_grad():
+                    for val_batch in valloader:
+                        val_image_batch, val_label_batch = val_batch['image'], val_batch['label']
+                        val_image_batch, val_label_batch = val_image_batch.cuda(), val_label_batch.cuda()
+                        val_outputs = model(val_image_batch)
+                        val_loss = loss_bin(val_outputs, val_label_batch)
+                        val_loss_total += val_loss.item()
+                        val_loss_count += 1
+                val_loss_avg = val_loss_total / val_loss_count
+                logging.info(f'iteration {iter_num} : validation loss avg {val_loss_avg}')
+                model.train()
 
         save_interval = 50  # int(max_epoch/6)
         if epoch_num > int(max_epoch / 2) and (epoch_num + 1) % save_interval == 0:
