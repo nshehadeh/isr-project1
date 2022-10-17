@@ -4,6 +4,7 @@ import os
 import random
 import sys
 import time
+import math
 import numpy as np
 import torch
 import torch.nn as nn
@@ -159,7 +160,8 @@ def trainer_synapse(args, model, snapshot_path):
     max_epoch = args.max_epochs
     max_iterations = args.max_epochs * len(trainloader)  # max_epoch = max_iterations // len(trainloader) + 1
     logging.info("{} iterations per epoch. {} max iterations ".format(len(trainloader), max_iterations))
-    best_performance = 0.0
+    best_val_loss = math.inf
+    best_val_loss_iter = None
     iterator = tqdm(range(max_epoch), ncols=70)
     optimizer.zero_grad()
     for epoch_num in iterator:
@@ -217,11 +219,14 @@ def trainer_synapse(args, model, snapshot_path):
                         val_loss_total += val_loss.item()
                         val_loss_count += 1
                 val_loss_avg = val_loss_total / val_loss_count
-                logging.info(f'iteration {iter_num} : validation loss avg {val_loss_avg}')
+                if val_loss_avg < best_val_loss:
+                    best_val_loss = val_loss_avg
+                    best_val_loss_iter = iter_num
+                logging.info(f'iteration {iter_num} : validation loss avg {val_loss_avg} (best {best_val_loss} at iter {best_val_loss_iter})')
                 model.train()
 
-        save_interval = 50  # int(max_epoch/6)
-        if epoch_num > int(max_epoch / 2) and (epoch_num + 1) % save_interval == 0:
+        save_interval = 25  # int(max_epoch/6)
+        if (epoch_num + 1) % save_interval == 0:
             save_mode_path = os.path.join(snapshot_path, 'epoch_' + str(epoch_num) + '.pth')
             torch.save(model.state_dict(), save_mode_path)
             logging.info("save model to {}".format(save_mode_path))
