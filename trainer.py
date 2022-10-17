@@ -161,8 +161,11 @@ def trainer_synapse(args, model, snapshot_path):
     logging.info("{} iterations per epoch. {} max iterations ".format(len(trainloader), max_iterations))
     best_performance = 0.0
     iterator = tqdm(range(max_epoch), ncols=70)
+    optimizer.zero_grad()
     for epoch_num in iterator:
         for i_batch, sampled_batch in enumerate(trainloader):
+            iter_num += 1
+
             image_batch, label_batch = sampled_batch['image'], sampled_batch['label']
             image_batch, label_batch = image_batch.cuda(), label_batch.cuda()
 
@@ -174,17 +177,17 @@ def trainer_synapse(args, model, snapshot_path):
             # loss = 0.5 * loss_ce + 0.5 * loss_dice
 
             loss = loss_bin(outputs, label_batch)
-
-            optimizer.zero_grad()
             loss.backward()
-            optimizer.step()
+
+            if iter_num % args.batch_groups == 0:
+                optimizer.step()
+                optimizer.zero_grad()
 
             if do_lr_decay:
                 lr_ = base_lr * (1.0 - iter_num / max_iterations) ** args.lr_decay_power
                 for param_group in optimizer.param_groups:
                     param_group['lr'] = lr_
 
-            iter_num = iter_num + 1
             if do_lr_decay:
                 writer.add_scalar('info/lr', lr_, iter_num)
             writer.add_scalar('info/total_loss', loss, iter_num)
